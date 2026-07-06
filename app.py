@@ -1,55 +1,96 @@
 import streamlit as st
-from automation_v2 import run_automation
 import pandas as pd
+import threading
+from automation_v2 import run_automation
 
-st.title("NGO Finder")
+st.title("LFC — Organization Discovery")
 
-with st.form("search_form"):
-    category = st.text_input("Category", placeholder="Child")
-    location = st.text_input("Location", placeholder="New Delhi")
-    search_entity = st.selectbox("Search Entity", ["NGO"])
-    target_count = st.slider("Target number of organizations", 10, 200, 50)
-    submitted = st.form_submit_button("Run Search")
+# --- Persistent state across reruns ---
+if "running" not in st.session_state:
+    st.session_state.running = False
+if "stop_event" not in st.session_state:
+    st.session_state.stop_event = threading.Event()
+if "results" not in st.session_state:
+    st.session_state.results = []
+if "total_found" not in st.session_state:
+    st.session_state.total_found = 0
+if "current_tier" not in st.session_state:
+    st.session_state.current_tier = ""
+if "thread" not in st.session_state:
+    st.session_state.thread = None
 
-if submitted:
-    if not category or not location or not search_entity:
-        st.error("Please fill in all fields.")
-    else:
-        status_box = st.empty()
-        progress_bar = st.progress(0)
+# --- Input form ---
+category = st.text_input("Category", placeholder="e.g. Child Welfare")
+location = st.text_input("Location", placeholder="e.g. New Delhi")
+search_entity = st.selectbox("Search Entity", ["NGO", "School"])
+target_count = st.number_input("Target Organizations", min_value=10, max_value=250, value=50, step=5)
 
-        def update_progress(tier, batch_orgs, total_orgs, queries_run, done=False):
-            pct = min(total_orgs / target_count, 1.0)
-            progress_bar.progress(pct)
-            status_box.markdown(
-                f"**Tier:** {tier}  \n"
-                f"**Queries run so far:** {queries_run}  \n"
-                f"**New Org this batch:** {batch_orgs}  \n"
-                f"**Total Organizations Found:** {total_orgs}/{target_count}"
-            )
+col1, col2 = st.columns(2)
+start_clicked = col1.button("▶ Start Search", disabled=st.session_state.running)
+stop_clicked = col2.button("⏹ Stop", disabled=not st.session_state.running)
 
-        results = run_automation(
+# --- Callback, called from the background thread ---
+def update_progress(tier, total_orgs, organizations, done):
+    st.session_state.current_tier = tier
+    st.session_state.total_found = total_orgs
+    st.session_state.results = organizations
+    if done:
+        st.session_state.running = False
+
+# --- Start ---
+if start_clicked and category and location and search_entity:
+    st.session_state.running = True
+    st.session_state.results = []
+    st.session_state.total_found = 0
+    st.session_state.stop_event = threading.Event()
+
+    def worker():
+        run_automation(
             category=category,
             location=location,
             search_entity=search_entity,
             target_count=target_count,
-            progress_callback=update_progress
+            progress_callback=update_progress,
+            stop_event=st.session_state.stop_event
         )
 
-        progress_bar.progress(1.0)
+    st.session_state.thread = threading.Thread(target=worker, daemon=True)
+    st.session_state.thread.start()
 
-        if not results:
-            st.warning("No organizations found. Try a broader category or location.")
-        else:
-            st.success(f"Found {len(results)} organizations!")
+# --- Stop ---
+if stop_clicked:
+    st.session_state.current_tier = "Stopping..."
+    st.session_state.stop_event.set()
 
-            df = pd.DataFrame(results)
-            st.dataframe(df, use_container_width=True)
+# --- Live display ---
+if st.session_state.running or st.session_state.results:
+    st.subheader("Organizations Found")
+    st.markdown(f"### {st.session_state.total_found} / {target_count}")
+    st.progress(min(st.session_state.total_found / target_count, 1.0))
 
-            csv = df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                label="Download as CSV",
-                data=csv,
-                file_name=f"{category}_{location}_organizations.csv",
-                mime="text/csv"
-            )
+    if st.session_state.running:
+        with st.status("Searching...", state="running", expanded=False):
+            st.write(f"Current Tier: {st.session_state.current_tier}")
+    else:
+        if st.session_state.results:
+            with st.status("Search complete", state="complete", expanded=False):
+                st.write(f"Found {len(st.session_state.results)} organizations")
+
+    if st.session_state.results:
+        names = [org.get("Organization", "Unknown") for org in st.session_state.results]
+        st.markdown("**Organization List**")
+        for name in names:
+            st.write(f"- {name}")
+
+# --- Download once finished ---
+if not st.session_state.running and st.session_state.results:
+    st.success(f"✅ Found {len(st.session_state.results)} organizations")
+    df = pd.DataFrame(st.session_state.results)
+    csv = df.to_csv(index=False).encode("utf-8")
+    st.download_button("Download CSV", data=csv, file_name="organizations.csv", mime="text/csv")
+
+# --- Keep refreshing the page while the search is running ---
+if st.session_state.running:
+    import time
+    time.sleep(1)
+    st.rerun()

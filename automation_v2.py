@@ -24,11 +24,11 @@ def dedup_organizations(new_orgs, seen_domains):
 
 
 def run_automation(category, location, search_entity, target_count=100,
-                    max_total_queries=250, batch_size=10, progress_callback=None):
+                    max_total_queries=250, batch_size=10, progress_callback=None, stop_event=None):
     print("Generating knowledge graph...")
 
     if progress_callback:
-        progress_callback(tier="Knowledge Graph", batch_orgs=0, total_orgs=0, queries_run=0)
+        progress_callback(tier="Knowledge Graph", total_orgs=0, organizations=[], done=False)
 
     MAX_QUERIES_PER_TIER = {
         "tier1": 15,
@@ -41,8 +41,6 @@ def run_automation(category, location, search_entity, target_count=100,
     graph = generate_knowledge(category, location)
     query_tiers = build_queries(graph, category, location, search_entity)
 
-    all_search_results = []
-    all_validated = []
     all_organizations = []
     seen_domains = set()
     total_queries_run = 0
@@ -52,16 +50,21 @@ def run_automation(category, location, search_entity, target_count=100,
         queries = queries[:limit]
 
         for batch_start in range(0, len(queries), batch_size):
+            # Stop button was pressed — return whatever we have right now
+            if stop_event is not None and stop_event.is_set():
+                if progress_callback:
+                    progress_callback(tier=tier_name, total_orgs=len(all_organizations),
+                                       organizations=all_organizations, done=True)
+                return all_organizations
+
             remaining_budget = max_total_queries - total_queries_run
             if remaining_budget <= 0:
                 if progress_callback:
-                    progress_callback(tier=tier_name, batch_orgs=0,
-                                       total_orgs=len(all_organizations),
-                                       queries_run=total_queries_run, done=True)
+                    progress_callback(tier=tier_name, total_orgs=len(all_organizations),
+                                       organizations=all_organizations, done=True)
                 return all_organizations
-
-            batch = queries[batch_start: batch_start + batch_size]
-            batch = batch[:remaining_budget]
+            
+            batch = queries[batch_start: batch_start + batch_size][:remaining_budget]
             if not batch:
                 break
 
@@ -72,29 +75,27 @@ def run_automation(category, location, search_entity, target_count=100,
             organizations = extract_organizations(validated)
             organizations = dedup_organizations(organizations, seen_domains)
 
-            all_search_results.extend(search_results)
-            all_validated.extend(validated)
             all_organizations.extend(organizations)
 
             if progress_callback:
                 progress_callback(
                     tier=tier_name,
-                    batch_orgs=len(organizations),
                     total_orgs=len(all_organizations),
-                    queries_run=total_queries_run,
+                    organizations=all_organizations,
                     done=False
                 )
 
             if len(all_organizations) >= target_count:
                 if progress_callback:
-                    progress_callback(tier=tier_name, batch_orgs=len(organizations),
-                                       total_orgs=len(all_organizations),
-                                       queries_run=total_queries_run, done=True)
+                    progress_callback(
+                        tier=tier_name, 
+                        total_orgs=len(all_organizations),
+                        organizations=all_organizations,
+                        done=True)
                 return all_organizations
 
     if progress_callback:
-        progress_callback(tier="Finished", batch_orgs=0,
-                           total_orgs=len(all_organizations),
-                           queries_run=total_queries_run, done=True)
+        progress_callback(tier="Finished", total_orgs=len(all_organizations),
+                           organizations=all_organizations, done=True)
 
     return all_organizations
