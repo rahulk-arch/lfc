@@ -4,6 +4,8 @@ import requests
 import urllib3
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
+session = requests.Session()
+session.headers.update(HEADERS)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -25,7 +27,7 @@ def validate_websites(search_results):
         "Accept-Language": "en-US,en;q=0.9",
     }
 
-    REQUEST_TIMEOUT = 10
+    REQUEST_TIMEOUT = 6
 
     # STEP 1: Domain blacklist → instant Invalid
 
@@ -191,9 +193,8 @@ def validate_websites(search_results):
 
         # --- Step 4: Fetch homepage ---
         try:
-            response = requests.get(
+            response = session.get(
                 normalize_to_homepage(url),
-                headers=HEADERS,
                 timeout=REQUEST_TIMEOUT,
                 allow_redirects=True,
                 verify=False
@@ -779,7 +780,7 @@ def validate_websites(search_results):
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import threading
 
-    MAX_WORKERS = 8  # start here; raise to 12-15 if stable, lower if you see lots of timeouts/blocks
+    MAX_WORKERS = 15  # start here; raise to 12-15 if stable, lower if you see lots of timeouts/blocks
 
     def strip_www(netloc: str) -> str:
         netloc = netloc.lower()

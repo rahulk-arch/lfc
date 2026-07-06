@@ -14,7 +14,7 @@ if "shared" not in st.session_state:
 # --- Input form ---
 category = st.text_input("Category", placeholder="e.g. Child Welfare")
 location = st.text_input("Location", placeholder="e.g. New Delhi")
-search_entity = st.selectbox("Search Entity", ["NGO", "School"])
+search_entity = st.text_input("Search Entity", placeholder="e.g. NGO/NPO")
 target_count = st.number_input("Target Organizations", min_value=10, max_value=250, value=50, step=5)
 
 col1, col2 = st.columns(2)
