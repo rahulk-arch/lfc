@@ -1,0 +1,17 @@
+# Secrets
+.streamlit/secrets.toml
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+.venv/
+
+# Generated files
+*.xlsx
+
+# IDE
+.vscode/
