@@ -748,8 +748,9 @@ def validate_websites(search_results):
 
         # --- Step 7: Decision ---
 
-        final_score = org_score - junk_score
-        reasons.append(f"Final Score = {final_score}")
+        # --- Step 7: Decision ---
+        final_score = org_score + (child_access_score // 3) - junk_score
+        reasons.append(f"Org={org_score} Child={child_access_score} Junk={junk_score} Final={final_score}")
 
         # Strong NGO website
         conditions = 0
