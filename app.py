@@ -8,16 +8,8 @@ st.title("LFC — Organization Discovery")
 # --- Persistent state across reruns ---
 if "running" not in st.session_state:
     st.session_state.running = False
-if "stop_event" not in st.session_state:
-    st.session_state.stop_event = threading.Event()
-if "results" not in st.session_state:
-    st.session_state.results = []
-if "total_found" not in st.session_state:
-    st.session_state.total_found = 0
-if "current_tier" not in st.session_state:
-    st.session_state.current_tier = ""
-if "thread" not in st.session_state:
-    st.session_state.thread = None
+if "shared" not in st.session_state:
+    st.session_state.shared = None   # will hold the plain dict while a search runs
 
 # --- Input form ---
 category = st.text_input("Category", placeholder="e.g. Child Welfare")
@@ -29,20 +21,26 @@ col1, col2 = st.columns(2)
 start_clicked = col1.button("▶ Start Search", disabled=st.session_state.running)
 stop_clicked = col2.button("⏹ Stop", disabled=not st.session_state.running)
 
-# --- Callback, called from the background thread ---
-def update_progress(tier, total_orgs, organizations, done):
-    st.session_state.current_tier = tier
-    st.session_state.total_found = total_orgs
-    st.session_state.results = organizations
-    if done:
-        st.session_state.running = False
-
 # --- Start ---
 if start_clicked and category and location and search_entity:
     st.session_state.running = True
-    st.session_state.results = []
-    st.session_state.total_found = 0
-    st.session_state.stop_event = threading.Event()
+
+    # Plain dict — NOT st.session_state — safe to mutate from a background thread
+    shared_dict = {
+        "total_found": 0,
+        "results": [],
+        "current_tier": "",
+        "done": False,
+        "stop_event": threading.Event(),
+    }
+    st.session_state.shared = shared_dict
+
+    def progress_callback(tier, total_orgs, organizations, done):
+        # writes to the plain dict, not st.session_state — safe from a thread
+        shared_dict["current_tier"] = tier
+        shared_dict["total_found"] = total_orgs
+        shared_dict["results"] = organizations
+        shared_dict["done"] = done
 
     def worker():
         run_automation(
@@ -50,42 +48,45 @@ if start_clicked and category and location and search_entity:
             location=location,
             search_entity=search_entity,
             target_count=target_count,
-            progress_callback=update_progress,
-            stop_event=st.session_state.stop_event
+            progress_callback=progress_callback,
+            stop_event=shared_dict["stop_event"]
         )
 
-    st.session_state.thread = threading.Thread(target=worker, daemon=True)
-    st.session_state.thread.start()
+    threading.Thread(target=worker, daemon=True).start()
 
 # --- Stop ---
-if stop_clicked:
-    st.session_state.current_tier = "Stopping..."
-    st.session_state.stop_event.set()
+if stop_clicked and st.session_state.shared is not None:
+    st.session_state.shared["current_tier"] = "Stopping..."
+    st.session_state.shared["stop_event"].set()
 
-# --- Live display ---
-if st.session_state.running or st.session_state.results:
+# --- Live display — main thread reads the plain dict, safe to touch st.session_state here ---
+shared = st.session_state.shared
+
+if shared is not None:
     st.subheader("Organizations Found")
-    st.markdown(f"### {st.session_state.total_found} / {target_count}")
-    st.progress(min(st.session_state.total_found / target_count, 1.0))
+    st.markdown(f"### {shared['total_found']} / {target_count}")
+    st.progress(min(shared["total_found"] / target_count, 1.0))
 
     if st.session_state.running:
         with st.status("Searching...", state="running", expanded=False):
-            st.write(f"Current Tier: {st.session_state.current_tier}")
+            st.write(f"Current Tier: {shared['current_tier']}")
     else:
-        if st.session_state.results:
+        if shared["results"]:
             with st.status("Search complete", state="complete", expanded=False):
-                st.write(f"Found {len(st.session_state.results)} organizations")
+                st.write(f"Found {len(shared['results'])} organizations")
 
-    if st.session_state.results:
-        names = [org.get("Organization", "Unknown") for org in st.session_state.results]
+    if shared["results"]:
         st.markdown("**Organization List**")
-        for name in names:
-            st.write(f"- {name}")
+        for org in shared["results"]:
+            st.write(f"- {org.get('Organization', 'Unknown')}")
+
+    if shared["done"]:
+        st.session_state.running = False
 
 # --- Download once finished ---
-if not st.session_state.running and st.session_state.results:
-    st.success(f"✅ Found {len(st.session_state.results)} organizations")
-    df = pd.DataFrame(st.session_state.results)
+if not st.session_state.running and shared is not None and shared["results"]:
+    st.success(f"✅ Found {len(shared['results'])} organizations")
+    df = pd.DataFrame(shared["results"])
     csv = df.to_csv(index=False).encode("utf-8")
     st.download_button("Download CSV", data=csv, file_name="organizations.csv", mime="text/csv")
 
