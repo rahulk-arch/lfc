@@ -4,8 +4,6 @@ import requests
 import urllib3
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-session = requests.Session()
-session.headers.update(HEADERS)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -28,6 +26,9 @@ def validate_websites(search_results):
     }
 
     REQUEST_TIMEOUT = 6
+
+    session = requests.Session()
+    session.headers.update(HEADERS)
 
     # STEP 1: Domain blacklist → instant Invalid
 
