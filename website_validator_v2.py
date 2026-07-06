@@ -809,7 +809,6 @@ def validate_websites(search_results):
         return {
             "Category": item["Category"],
             "Location": item["Location"],
-            "Search Query": item["Search Query"],
             "Title": title,
             "URL": url,
             "Result Type": item["Result Type"],
@@ -854,7 +853,7 @@ def validate_websites(search_results):
                     unsure_count += 1
 
                 validated_results.append(row)
-                print(f"[{total}/{len(to_process)}] {row['Title'][:55]} -> {row['Validation']}")
+                print(f"[{total}/{len(to_process)}] {row['Title'][:55]} -> {row['Validation']} | {row['Reason'][:150]}")
 
     print(f"\nDone!")
     print(f"  Valid:   {valid_count}")

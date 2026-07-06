@@ -47,7 +47,6 @@ def extract_organizations(validated_results):
     for item in validated_results:
 
         category = item["Category"]
-        query = item["Search Query"]
         url = item["URL"]
         result_type = item["Result Type"]
         validation = item["Validation"]
@@ -145,7 +144,10 @@ def extract_organizations(validated_results):
         ]
 
         for a in soup.find_all("a", href=True):
-            href = a["href"].strip()
+            href = a.get("href") or ""
+            if isinstance(href, (list, tuple)):
+                href = href[0] if href else ""
+            href = str(href).strip()
             link = urljoin(homepage, href)
             lower = link.lower()
 
@@ -193,7 +195,6 @@ def extract_organizations(validated_results):
             "Email": email,
             "Phone": phone,
             "Category": category,
-            "Search Query": query,
         })
 
         existing_domains.add(domain)

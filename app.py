@@ -5,9 +5,9 @@ import pandas as pd
 st.title("NGO Finder")
 
 with st.form("search_form"):
-    category = st.text_input("Category", placeholder="Education NGO")
+    category = st.text_input("Category", placeholder="Child")
     location = st.text_input("Location", placeholder="New Delhi")
-    search_entity = st.selectbox("Search Entity", ["NGO", "School"])
+    search_entity = st.selectbox("Search Entity", ["NGO"])
     target_count = st.slider("Target number of organizations", 10, 200, 50)
     submitted = st.form_submit_button("Run Search")
 
