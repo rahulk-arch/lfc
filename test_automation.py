@@ -1,17 +1,10 @@
-from serperai import search_web
-import time
+from automation_v2 import run_automation
 
-test_queries = [
-    "Education NGO Delhi",
-    "NGO for Education Delhi",
-]
+results = run_automation(
+    category="Children",
+    location="Bangalore",
+    search_entity="NGO",
+    target_count=20
+)
 
-start = time.time()
-results = search_web(test_queries, category="Education", location="Delhi")
-print(f"\nGot {len(results)} results in {time.time()-start:.1f} seconds\n")
-
-for i, row in enumerate(results, start=1):
-    print(f"{i}. {row['Title']}")
-    print(f"   URL: {row['URL']}")
-    print(f"   Type: {row['Result Type']}")
-    print()
+print(results)

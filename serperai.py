@@ -2,12 +2,15 @@ import os
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+SERPER_API_KEY = "a5acda6d15aec43fbf98d197a024e42891bf84cd"
+
+'''
 try:
     import streamlit as st
     SERPER_API_KEY = st.secrets["SERPER_API_KEY"]
 except (ImportError, KeyError, FileNotFoundError):
     SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
-
+'''
 SERPER_URL = "https://google.serper.dev/search"
 SEARCH_WORKERS = 15  # safe now — Serper is a real rate-limited API, not a scraper
 
@@ -161,15 +164,22 @@ def search_web(queries, category, location):
     def process_query(i, query, total):
         print(f"[{i}/{total}] Searching: {query}")
 
+        print("API KEY:", repr(SERPER_API_KEY))
+        print("API KEY LENGTH:", len(SERPER_API_KEY) if SERPER_API_KEY else 0)
+
         try:
             response = requests.post(
                 SERPER_URL,
-                headers={"X-API-KEY": "SERPER_API_KEY", "Content-Type": "application/json"},
+                headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
                 json={"q": query, "num": 15},
                 timeout=10
             )
+
             data = response.json()
+            print(data)
             results = data.get("organic", [])
+            print("organic results:", len(results))
+
         except Exception as e:
             print(f"Failed: {query} — {e}")
             return []
@@ -178,6 +188,7 @@ def search_web(queries, category, location):
         for result in results:
             title = result.get("title", "").strip()
             url = result.get("link", "").strip()
+            snippet = result.get("snippet", "").strip()
 
             if not url:
                 continue
@@ -210,12 +221,18 @@ def search_web(queries, category, location):
             if result_type is None:
                 result_type = "Official Website"
 
+            location_lower = location.lower()
+            combined_text = f"{title} {snippet}".lower()
+            location_hint_score = combined_text.count(location_lower)
+
             matches.append({
                 "Category": category,
                 "Location": location,
                 "Search Query": query,
                 "Title": title,
                 "URL": url,
+                "Snippet": snippet,
+                "Location Hint Score": location_hint_score,
                 "Result Type": result_type,
             })
 

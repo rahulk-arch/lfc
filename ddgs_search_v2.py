@@ -3,7 +3,7 @@ from ddgs import DDGS
  
 
 def search_web(queries, category, location):   
-    SEARCH_WORKERS = 4
+    SEARCH_WORKERS = 3
 
     # Domain Rules
     DOMAIN_RULES = {

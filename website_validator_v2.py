@@ -12,7 +12,7 @@ import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-def validate_websites(search_results):
+def validate_websites(search_results, category_signals, location):
 
     # Config
 
@@ -223,15 +223,48 @@ def validate_websites(search_results):
         page_text = soup.get_text(separator=" ", strip=True).lower()
 
         org_score = 0
+        location_hits = 0
         junk_score = 0
         child_access_score = 0
         reasons = []
+
+        category_hits = 0
+
+        for signal in category_signals:
+            signal = signal.lower().strip()
+            if signal and signal in page_text:
+                category_hits += 1
+
+        if category_hits >= 8:
+            org_score += 4
+            reasons.append(f"{category_hits} category signals")
+
+        elif category_hits >= 4:
+            org_score += 2
+            reasons.append(f"{category_hits} category signals")
+
 
         # Very small pages are usually placeholders, redirects, or error pages
         if len(page_text) < 400:
             junk_score += 3
             reasons.append("Very little page content")
         
+        location_hits = page_text.lower().count(location.lower())
+
+        if location:
+            if location_hits == 0:
+                junk_score += 3   # softened from 5 — still discourages, doesn't guarantee rejection
+                reasons.append(f"No mention of '{location}' on page")
+            elif location_hits >= 2:
+                org_score += 1    # small reward for genuinely, repeatedly mentioning the location
+                reasons.append(f"{location_hits} location mentions")
+        print(f"Location: {location}")
+        print(f"Location Hits: {location_hits}")
+        print(f"Org Score: {org_score}")
+        print(f"Junk Score: {junk_score}")
+        print(f"Reasons: {reasons}")
+        print("-" * 50)
+
         CHILD_SERVICE_SIGNALS = [
             "learning centre",
             "learning center",
@@ -794,6 +827,7 @@ def validate_websites(search_results):
     to_process = []
     for row_idx, item in enumerate(search_results, start=1):
         result_type = item["Result Type"]
+        location = item.get("Location", "")
         url = item["URL"]
 
         if result_type not in ("Official Website", "Government"):
@@ -864,4 +898,5 @@ def validate_websites(search_results):
     print(f"  Unsure:  {unsure_count}")
     print(f"  Total:   {total}")
 
+    
     return validated_results
