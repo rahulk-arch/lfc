@@ -12,10 +12,10 @@ if "shared" not in st.session_state:
     st.session_state.shared = None   # will hold the plain dict while a search runs
 
 # --- Input form ---
-category = st.text_input("Category", placeholder="e.g. Child Welfare")
+category = st.text_input("Category", value="Child")
 location = st.text_input("Location", placeholder="e.g. New Delhi")
 search_entity = st.text_input("Search Entity", placeholder="e.g. NGO/NPO")
-target_count = st.number_input("Target Organizations", min_value=10, max_value=250, value=50, step=5)
+target_count = st.number_input("Target Organizations", min_value=10, max_value=10, value=10, step=1)
 
 col1, col2 = st.columns(2)
 start_clicked = col1.button("▶ Start Search", disabled=st.session_state.running)

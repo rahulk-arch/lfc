@@ -12,7 +12,7 @@ import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-def validate_websites(search_results, category_signals, location):
+def validate_websites(search_results, category_signals, location, stop_event=None):
 
     # Config
 

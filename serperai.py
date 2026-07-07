@@ -15,7 +15,7 @@ SERPER_URL = "https://google.serper.dev/search"
 SEARCH_WORKERS = 15  # safe now — Serper is a real rate-limited API, not a scraper
 
 
-def search_web(queries, category, location):
+def search_web(queries, category, location, stop_event=None):
 
     DOMAIN_RULES = {
         # ---------- Skip ----------

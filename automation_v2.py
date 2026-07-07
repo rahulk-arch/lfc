@@ -83,7 +83,7 @@ def run_automation(category, location, search_entity, target_count=100,
 
             total_queries_run += len(batch)
 
-            search_results = search_web(batch, category, location)
+            search_results = search_web(batch, category, location, stop_event=stop_event)
 
             def rank_candidate(item):
                 score = 0
@@ -97,7 +97,7 @@ def run_automation(category, location, search_entity, target_count=100,
             search_results.sort(key=rank_candidate, reverse=True)
             top_candidates = search_results[:40]
             
-            validated = validate_websites(top_candidates, category_signals=category_signals, location=location)
+            validated = validate_websites(top_candidates, category_signals=category_signals, location=location, stop_event=stop_event)
             organizations = extract_organizations(validated)
             organizations = dedup_organizations(organizations, seen_domains)
 
