@@ -1,10 +1,10 @@
-from automation_v2 import run_automation
+from automation_parallel import run_parallel_pipeline
 
-results = run_automation(
+results = run_parallel_pipeline(
     category="Children",
     location="Bangalore",
     search_entity="NGO",
-    target_count=20
+    target_count=10
 )
 
 print(results)

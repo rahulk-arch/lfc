@@ -3,17 +3,24 @@ import time
 import json
 from google import genai
 from google.genai import types
+#from groq import Groq
 
 try:
     import streamlit as st
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 except (ImportError, KeyError, FileNotFoundError):
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-
+'''
+try:
+    import streamlit as st
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+except (ImportError, KeyError, FileNotFoundError, RuntimeError):
+    GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+'''
 # Load Workbook
 def generate_knowledge(category, location):
-    # Gemini Client
     client = genai.Client(api_key=GEMINI_API_KEY)
+    #client = Groq(api_key=GROQ_API_KEY)
 
     NUM_KEYWORDS = 40
     NUM_ORGANIZATION_TYPES = 25
@@ -133,6 +140,17 @@ def generate_knowledge(category, location):
     # Ask Gemini
     # ----------------------------
     for attempt in range(5):
+        '''
+        try:
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",  # free, fast, very capable
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.4,
+                response_format={"type": "json_object"},  # forces JSON output
+            )
+            text = response.choices[0].message.content
+            '''
+        
         try:
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
@@ -144,7 +162,8 @@ def generate_knowledge(category, location):
             )
         )
             text = response.text
-
+        
+            
             if not text:
                 raise Exception("Empty response from Gemini")
 
