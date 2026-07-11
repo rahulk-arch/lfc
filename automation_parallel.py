@@ -91,8 +91,9 @@ def run_parallel_pipeline(
         queries = query_tiers[tier_name][: MAX_QUERIES_PER_TIER.get(tier_name, 999)]
         print(f"  [{tier_name}] Starting — {len(queries)} queries")
 
-        with ThreadPoolExecutor(max_workers=SERPER_WORKERS_PER_TIER) as pool:
-            futures = []
+        pool = ThreadPoolExecutor(max_workers=SERPER_WORKERS_PER_TIER)
+        futures = []
+        try:
             for q in queries:
                 if stop_event.is_set():
                     break
@@ -107,10 +108,19 @@ def run_parallel_pipeline(
                     time.sleep(0.05)
 
             for f in as_completed(futures):
+                if stop_event.is_set():
+                    break
                 try:
                     f.result()
                 except Exception as e:
                     print(f"  [{tier_name}] Search error: {e}")
+        finally:
+            # Cancel anything still queued (hasn't started running yet) so a
+            # Stop click doesn't have to wait for every submitted query to
+            # finish before this tier — and the pool — can shut down.
+            for pending in futures:
+                pending.cancel()
+            pool.shutdown(wait=True)
 
         with results_lock:
             active_tiers[0] -= 1
@@ -172,14 +182,13 @@ def run_parallel_pipeline(
 
     validator_thread.start()   # validator ready before first URL arrives
     collector_thread.start()   # collector ready before first valid result
-    collector_thread.join(timeout=30) # wait up to 30s for collector to finish
 
     for t in tier_threads:
         t.start()              # all 5 tiers start at the same time
 
     # ── Progress loop ─────────────────────────────────────────────────────────
     while True:
-        time.sleep(1)
+        time.sleep(0.5)
 
         with results_lock:
             count = len(results_list)
